@@ -1,0 +1,24 @@
+seed  :  210919
+gpu_id  :  0
+use_cuda  :  True
+optimizer  :  torch.optim.AdamW
+lr  :  0.001
+total_epochs  :  200
+train_batch_size  :  1
+valid_batch_size  :  1
+test_batch_size  :  1
+use_scheduler  :  True
+intensity_alpha  :  1.0
+color_alpha  :  1.0
+save  :  True
+valid_interval  :  1
+exp_name  :  Ada1DLUT
+activate_func  :  torch.nn.SiLU
+small_size  :  (256, 256)
+checkpoints_dir  :  ./checkpoints/Ada1DLUT
+input_dir  :  input
+dataset_dir  :  F:/liuchang/code/2023/MIT-Adobe-FiveK
+gt_dir  :  expertC_gt
+visualize_size  :  1
+visualize_batch  :  100
+visualize_dir  :  ./checkpoints/Ada1DLUT\train_phase

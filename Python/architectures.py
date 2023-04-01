@@ -66,6 +66,10 @@ class Adaptive1DLUTTransform(torch.autograd.Function):
 		# 定义辅助变量, 记录哪些地方有梯度
 		lut_index = torch.zeros(image_size).type(torch.IntTensor).to(image.device)
 
+		# 强制输入是连续存储的
+		if (not image.contiguous()):
+			image = image.contiguous()
+
 		# C++/CUDA
 		intensity_transform_1dlut.adaptive_forward(
 			output,
@@ -151,7 +155,9 @@ class Adaptive1DLUTNet(torch.nn.Module):
 		# 如果是导出 onnx, 由于最后一个算子需要自定义, 直接拿到模型最外面
 		if (torch.onnx.is_in_onnx_export() and not self.training):
 			# 必要的话, 可以返回低分辨率的
-			return weights_lowres if (onnx_export_lowres) else weights
+			determined_weights = weights_lowres if (onnx_export_lowres) else weights
+			# 返回 1xHxWx(3x9)
+			return determined_weights.permute(0, 2, 3, 1)
 
 		# 【5】 对原始分辨率的图像做亮度变换
 		enhanced = Adaptive1DLUTTransform.apply(img, weights, self.learned_lut)

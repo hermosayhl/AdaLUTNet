@@ -44,7 +44,7 @@ __global__ void adaptive_1dlut_intensity_transform_forward_kernel(
 		}
 		// 写回
 		output[image_pos] = sum_value;
-		// 为反向传播记录一些信息
+		// 为反向传播记录一些信息(这一步如果是推理阶段, 可以省去这一条! )
 		lut_index[image_pos] = pixel_value;
 	}
 }

@@ -31,15 +31,15 @@ void adaptive_1dlut_intensity_transform_forward(
 		const at::Tensor& weights,
 		const at::Tensor& luts,
 		at::Tensor& lut_index) {
-	
-// #ifdef WITH_ASSERT
-	// &&
-	// assert (image.is_contiguous()   and "image is not contiguous!");
-	// assert (weights.is_contiguous() and "weights is not contiguous!");
-	// assert (luts.is_contiguous()    and "luts is not contiguous!");
-	// assert (weights_C == C and weights_H == H and weights_W == W and "image and weights should have same size of image");
-	// assert (luts_C == C and luts_count * luts_C == weight_C and "luts have invalid dimensions");
-// #endif
+// 做一些校验
+#ifdef WITH_ASSERT
+	assert (output.is_contiguous()  && "output is not contiguous!");
+	assert (image.is_contiguous()   && "image is not contiguous!");
+	assert (weights.is_contiguous() && "weights is not contiguous!");
+	assert (luts.is_contiguous()    && "luts is not contiguous!");
+	// assert (weights_C == C && weights_H == H && weights_W == W && "image && weights should have same size of image");
+	// assert (luts_C == C && luts_count * luts_C == weight_C && "luts have invalid dimensions");
+#endif
 
 	if (image.is_cuda()) {
 #ifdef WITH_CUDA

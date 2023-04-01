@@ -21,7 +21,7 @@ import architectures
 
 
 # 定义网络结构
-device = torch.device("cpu")
+device = torch.device("cuda")
 network = architectures.Adaptive1DLUTNet(
 		base_lut_count=9,
 		lut_nodes=256,
@@ -34,20 +34,19 @@ network.load_state_dict(pretrained_weights)
 
 # 读取图像
 image_path = "./images/test/IMG_20230315_124509.png"
-image      = cv2.imread(image_path)
+image      = cv2.imread(image_path).astype("float32")
 
-# numpy → torch
+# numpy → torch, 最好加 contiguous(), 因为后面的自定义算子只能连续存储的 Tensor
 image_tensor = torch.as_tensor(image).unsqueeze(0)
-image_tensor = image_tensor.permute(0, 3, 1, 2).type(torch.FloatTensor).div(255)
+image_tensor = image_tensor.permute(0, 3, 1, 2).contiguous().div(255).to(device)
 print(image_tensor.shape, image_tensor.dtype)
 
 network.eval()
 with torch.no_grad():
 	# 推理
 	output_tensor = network(image_tensor)
-	print("output_tensor  ", output_tensor.shape)
-
-	print(output_tensor[0, 0, 0, :100])
-	print(output_tensor.min(), output_tensor.max(), "{:.7f}".format(output_tensor.mean()))
-
-
+	# 展示
+	enhanced = output_tensor.squeeze(0).clamp(0, 1).mul(255).permute(1, 2, 0).detach().cpu().numpy().astype('uint8')
+	pipeline.show(enhanced)
+	# 保存
+	pipeline.write(enhanced, image_path.replace(".png", "_enhanced.png"))

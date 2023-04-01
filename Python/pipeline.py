@@ -8,10 +8,15 @@ from torch.utils.data import Dataset
 
 
 # 展示
-def cv_show(image, name='yhl'):
+def show(image, name='crane'):
 	cv2.imshow(name, image)
 	cv2.waitKey(0)
 	cv2.destroyAllWindows()
+
+
+# 写入
+def write(image, save_path):
+	cv2.imwrite(save_path, image, [cv2.IMWRITE_PNG_COMPRESSION, 0])
 
 
 # 旋转

@@ -111,11 +111,40 @@ target("dynamic_inference")
 
     -- 添加源文件, 含有 main 函数入口
     add_files("$(projectdir)/src/inference_fp32.cpp")
+
+    -- 添加自己的头文件
+    add_includedirs("$(projectdir)/include")
+    
+    -- 添加 OpenCV 支持
+    -- add_opencv_support()
+
+    -- 添加 stb_image 支持(要注意这个 RGB 顺序还是 BGR 顺序影响)
+    add_stb_support()
+
+    -- 添加 MNN 支持
+    add_mnn_support()
+    
+-- 结束 cnn_train
+target_end()
+
+
+
+-- 处理动态输入的 demo
+target("dynamic_inference_buffer")
+
+    -- 执行相同的操作
+    use_default_config()
+
+    -- 添加源文件, 含有 main 函数入口
+    add_files("$(projectdir)/src/inference_fp32_buffer.cpp")
+
+    -- 添加自己的头文件
+    add_includedirs("$(projectdir)/include")
     
     -- 添加 OpenCV 支持
     add_opencv_support()
 
-    -- 添加 stb_image 支持
+    -- 添加 stb_image 支持(要注意这个 RGB 顺序还是 BGR 顺序影响)
     -- add_stb_support()
 
     -- 添加 MNN 支持

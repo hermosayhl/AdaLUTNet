@@ -80,13 +80,15 @@ template<const int CHANNEL=3, const int LUT_NODES=256>
 class AdaLUTNetMNNInference {
 private:
 	MNN::Interpreter*   network = nullptr; /*!< 模型部分, 跟 ONNX 一致, 推理的主要接口 */
-	std::vector<float>  luts;              /*!< 模型部分, 包含 ONNX 在外, 推理的主要接口 */
+	std::vector<float>  luts;              /*!< 模型部分, 包含 ONNX 在外, 推理的后处理(自定义算子部分所需变量) */
+	int32_t             luts_count = 0;    /*!< 模型部分, lut的个数 */
 
 	MNN::ScheduleConfig config;            /*!< MNN 推理配置 */
     MNN::BackendConfig  backendConfig;	   /*!< MNN 推理精度、内存、耗电量等设置 */
     MNN::Session*       session; 		   /*!< MNN 推理会话 */
  
 	bool                load_ok = false;   /*!< 标记模型是否已经成功加载 */
+	
 public:
 	/** 
 	 * @brief  析构函数, 释放资源
@@ -163,6 +165,9 @@ public:
 		luts_reader.seekg(0, std::ios::beg);
 		luts_reader.read((char*)(this->luts.data()), lut_length);
 		luts_reader.close();
+		// 计算曲线的个数
+		this->luts_count = static_cast<int32_t>(lut_elements / (CHANNEL * LUT_NODES));
+		printf("luts_count  %d\n", luts_count);
 		return true;
 	}
 
@@ -171,15 +176,17 @@ public:
 	 * @param  output_raw_ptr        参数 1    用于保存模型增强结果的指针, 类型 uint8, 数据范围 0-255
 	 * @param  input_raw_ptr         参数 2    输入图像的指针, 类型 uint8, 数据范围 0-255
 	 * @param  height                参数 3    图像高度
-	 * @param  width                 参数 3    图像宽度
-	 * @param  channel               参数 3    图像通道数目
+	 * @param  width                 参数 4    图像宽度
+	 * @param  channel               参数 5    图像通道数目
+	 * @param  channel               参数 6    是否使用 BGR 顺序
 	 *
 	 * @return 
 	 */
 	void run(
 			unsigned char* const output_raw_ptr,
 			const unsigned char* input_raw_ptr, 
-			const int32_t height, const int32_t width, const int32_t channel) {
+			const int32_t height, const int32_t width, const int32_t channel,
+			const bool use_BGR) {
 		// 目前只支持 3 通道 RGB 24 图像
 		if (channel != CHANNEL) {
 			printf("Only images of 'channel = 3' are supported!\n");
@@ -198,10 +205,10 @@ public:
 
 		// 准备一块跟 input_tensor 同样 shape 的张量, 数据从 hwc 转换成 chw
 		auto input_buffer = new MNN::Tensor(input_tensor, MNN::Tensor::CAFFE);
+		const int32_t infer_hw = height * width;
 		run_timer([&](){
-			const int32_t infer_hw = height * width;
 			for (int32_t c = 0; c < channel; ++c) {
-				float* write_ptr = input_buffer->host<float>() + c * infer_hw;
+				float* write_ptr = input_buffer->host<float>() + (use_BGR? c * infer_hw: (CHANNEL - 1 - c) * infer_hw);
 				for (int32_t i  = 0; i < infer_hw; ++i) {
 					write_ptr[i] = input_raw_ptr[i * channel + c] / 255.f;
 				}
@@ -229,21 +236,20 @@ public:
 		
 		float* weight_ptr = output_buffer->host<float>();
 
-		const int area = height * width;
 		// openmp
 		run_timer([&, this](){
-			for (int i = 0; i < area; ++i) {
-				unsigned char* write_ptr = output_raw_ptr + i * channel;
-				for (int c = 0; c < channel; ++c) {
-					float* weight_start = weight_ptr + i * 27 + c * 9;
-					float* luts_start   = this->luts.data() + c * 9 * 256;
+			for (int c = 0; c < CHANNEL; ++c) {
+				for (int i = 0; i < infer_hw; ++i) {
+					const int pos = i * CHANNEL + c;
+					float* weight_start = weight_ptr + pos * this->luts_count;
+					// 3 * 256 * 9
 					float sum_value{0.f};
-					int pixel_value = input_raw_ptr[i * 3 + c];
-					for (int k = 0; k < 9; ++k) {
-						sum_value += weight_start[k] * luts_start[pixel_value];
-						luts_start += 256;
+					int pixel_value = input_raw_ptr[pos];
+					float* luts_start   = this->luts.data() + c * LUT_NODES * this->luts_count + pixel_value * this->luts_count;
+					for (int k = 0; k < this->luts_count; ++k) {
+						sum_value += weight_start[k] * luts_start[k];
 					}
-					write_ptr[c] = cv_clip(sum_value * 255);
+					output_raw_ptr[pos] = cv_clip(sum_value * 255);
 				}
 			}
 		}, "post process");
@@ -268,6 +274,7 @@ int main() {
 
     // 读取图像
 	const std::string image_path("./images/IMG_20230315_124509.png");
+	bool use_BGR = true;
 
 #if defined(USE_OPENCV)
 	printf("USE_OPENCV\n");
@@ -287,6 +294,7 @@ int main() {
 
 #elif defined(USE_STB_IMAGE)
 	printf("USE_STB_IMAGE\n");
+	use_BGR = false;
 	int32_t height, width, channel;
 	unsigned char* input_image_ptr = stbi_load(image_path.c_str(), &width, &height, &channel, 0);
 	// 分配一个同样大小的图像, 接收增强结果
@@ -300,7 +308,7 @@ int main() {
 	
 	// 推理
 	run_timer([&](){
-		task.run(output_image_ptr, input_image_ptr, height, width, channel);
+		task.run(output_image_ptr, input_image_ptr, height, width, channel, use_BGR);
 	}, "total");
 
 #if defined(USE_OPENCV)

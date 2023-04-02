@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ada1dlut</string>
+    <string-array name="style_array">
+        <item>ada1dlutfp32</item>
+        <item>ada1dlutfp16</item>
+        <item>ada1dlutbf16</item>
+        <item>ada1dlutint8</item>
+        <item>other</item>
+    </string-array>
+</resources>

@@ -78,6 +78,7 @@ os.system("python -m onnxsim {} {}".format(export_onnx_path, export_onnx_path.re
 
 
 # 由于目前导出的模型不包含自定义算子, 因此可学习的几个 lut 不在 onnx 中, 需要单独导出
-luts = network.learned_lut.cpu().detach().numpy().flatten()
-luts.astype("float32").tofile(os.path.join(save_dir, "learned_lut.bin"))
+luts = numpy.ascontiguousarray(network.learned_lut.cpu().detach().numpy().transpose(0, 2, 1))
+print(luts.shape)
+luts.flatten().astype("float32").tofile(os.path.join(save_dir, "learned_lut.bin"))
 print(luts.shape)
